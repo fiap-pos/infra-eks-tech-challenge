@@ -2,7 +2,7 @@ name: 'Infra CI'
 
 on:
   pull_request:
-    types: opened
+    types: [opened, edited]
     branches:
       - develop
       - main
@@ -33,13 +33,16 @@ jobs:
         run: terraform init
         working-directory: './eks'
 
-      - name: terraform fmt
-        run: terraform fmt
+      - name: terraform validate
+        run: terraform validate
         working-directory: './eks'
 
       - name: terraform plan
         run: terraform plan
         working-directory: './eks'
+
+      - name: terraform apply
+        run: terraform apply -auto-approve
 
       - run: echo ${{ steps.plan.outputs.stdout }}
       - run: echo ${{ steps.plan.outputs.stderr }}
