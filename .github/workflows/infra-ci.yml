@@ -2,7 +2,7 @@ name: 'Infra CI'
 
 on:
   pull_request:
-    types: [opened, edited]
+    types: [opened, synchronize]
     branches:
       - develop
       - main
