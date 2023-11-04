@@ -1,7 +1,11 @@
-name: 'Infra destroy'
+name: "Infra destroy"
 
-on: workflow_dispatch
-
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+      - main
 
 jobs:
   infra-destroy:
@@ -24,11 +28,11 @@ jobs:
 
       - name: get tfstate
         run: aws s3api ...
-        working-directory: './eks'
+        working-directory: "./eks"
 
       - name: destroy
         run: terraform destroy -auto-approve
-        working-directory: './eks'
+        working-directory: "./eks"
 
       - run: echo ${{ steps.plan.outputs.stdout }}
       - run: echo ${{ steps.plan.outputs.stderr }}
