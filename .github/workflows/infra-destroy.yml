@@ -2,10 +2,6 @@ name: "Infra destroy"
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-      - main
 
 jobs:
   infra-destroy:
@@ -25,10 +21,6 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.6.1
-
-      - name: get tfstate
-        run: aws s3api ...
-        working-directory: "./eks"
 
       - name: destroy
         run: terraform destroy -auto-approve
