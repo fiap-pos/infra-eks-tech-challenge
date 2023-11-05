@@ -22,10 +22,10 @@ jobs:
         with:
           terraform_version: 1.6.1
 
+      - name: init
+        run: terraform init
+        working-directory: "./eks"
+
       - name: destroy
         run: terraform destroy -auto-approve
         working-directory: "./eks"
-
-      - run: echo ${{ steps.plan.outputs.stdout }}
-      - run: echo ${{ steps.plan.outputs.stderr }}
-      - run: echo ${{ steps.plan.outputs.exitcode }}

@@ -1,4 +1,4 @@
-name: 'Infra CI'
+name: "Infra CI"
 
 on:
   pull_request:
@@ -7,8 +7,8 @@ on:
       - develop
       - main
     paths:
-      - '**.tf'
-      - '**.tfvars'
+      - "**.tf"
+      - "**.tfvars"
 
 jobs:
   terraform-files-check:
@@ -31,20 +31,16 @@ jobs:
 
       - name: init
         run: terraform init
-        working-directory: './eks'
+        working-directory: "./eks"
 
       - name: validate
         run: terraform validate
-        working-directory: './eks'
+        working-directory: "./eks"
 
       - name: plan
         run: terraform plan
-        working-directory: './eks'
+        working-directory: "./eks"
 
       - name: apply
         run: terraform apply -auto-approve
-        working-directory: './eks'
-
-      - run: echo ${{ steps.plan.outputs.stdout }}
-      - run: echo ${{ steps.plan.outputs.stderr }}
-      - run: echo ${{ steps.plan.outputs.exitcode }}
+        working-directory: "./eks"
