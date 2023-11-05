@@ -6,8 +6,8 @@ resource "aws_ssm_parameter" "name" {
 
 terraform {
   backend "s3" {
-    bucket = "tech-challenge-61/infra-eks-tech-challenge/"
-    key    = "eks.tfstate"
+    bucket = "tech-challenge-61"
+    key    = "infra-eks-tech-challenge/eks.tfstate"
     region = "us-east-1"
   }
 }
