@@ -1,4 +1,4 @@
-## VPC
+### VPC
 resource "aws_vpc" "eks_vpc" {
   cidr_block = "10.0.0.0/17"
 
@@ -6,221 +6,273 @@ resource "aws_vpc" "eks_vpc" {
     Name = "tech-challenge-vpc"
   }
 }
+### INTERNET GW
+resource "aws_internet_gateway" "eks_igw" {
+  vpc_id = aws_vpc.eks_vpc.id
 
-resource "aws_subnet" "private_subnet" {
-  count                   = 2
+  tags = {
+    Name = "tech-challenge-igw"
+  }
+}
+
+### SUBNETS
+resource "aws_subnet" "eks_private_us_east_1a" {
+  vpc_id            = aws_vpc.eks_vpc.id
+  cidr_block        = "10.0.0.0/19"
+  availability_zone = "us-east-1a"
+
+  tags = {
+    "Name"                            = "tech-challenge-private-us-east-1a"
+    "kubernetes.io/role/internal-elb" = "1"
+    "kubernetes.io/cluster/demo"      = "owned"
+  }
+}
+
+resource "aws_subnet" "eks_private_us_east_1b" {
+  vpc_id            = aws_vpc.eks_vpc.id
+  cidr_block        = "10.0.32.0/19"
+  availability_zone = "us-east-1b"
+
+  tags = {
+    "Name"                            = "tech-challenge-private-us-east-1b"
+    "kubernetes.io/role/internal-elb" = "1"
+    "kubernetes.io/cluster/demo"      = "owned"
+  }
+}
+
+resource "aws_subnet" "eks_public_us_east_1a" {
   vpc_id                  = aws_vpc.eks_vpc.id
-  cidr_block              = element(["10.0.1.0/24", "10.0.2.0/24"], count.index)
-  availability_zone       = element(["us-east-1a", "us-east-1b"], count.index)
-  map_public_ip_on_launch = false
+  cidr_block              = "10.0.64.0/19"
+  availability_zone       = "us-east-1a"
+  map_public_ip_on_launch = true
 
   tags = {
-    Name = "tech-challenge-pv-subnet-${count.index + 1}"
+    "Name"                       = "tech-challenge-public-us-east-1a"
+    "kubernetes.io/role/elb"     = "1"
+    "kubernetes.io/cluster/demo" = "owned"
   }
 }
 
-resource "aws_security_group" "eks_cluster_sg" {
-  name_prefix = "eks-cluster-sg-"
-  vpc_id      = aws_vpc.eks_vpc.id
+resource "aws_subnet" "eks_public_us_east_1b" {
+  vpc_id                  = aws_vpc.eks_vpc.id
+  cidr_block              = "10.0.96.0/19"
+  availability_zone       = "us-east-1b"
+  map_public_ip_on_launch = true
 
   tags = {
-    Name = "tech-challenge-sg"
+    "Name"                       = "tech-challenge-public-us-east-1b"
+    "kubernetes.io/role/elb"     = "1"
+    "kubernetes.io/cluster/demo" = "owned"
   }
 }
 
-resource "aws_security_group_rule" "eks_cluster_ingress" {
-  type              = "ingress"
-  from_port         = 0
-  to_port           = 65535
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.eks_cluster_sg.id
+### ELASTIC IP
+resource "aws_eip" "eks_nat_eip" {
+  domain = "vpc"
+
+  tags = {
+    Name = "tech-challenge-eip"
+  }
 }
 
-resource "aws_eip" "nat_eip" {}
+### NAT GW
+resource "aws_nat_gateway" "eks_nat_gw" {
+  allocation_id = aws_eip.eks_nat_eip.id
+  subnet_id     = aws_subnet.eks_public_us_east_1a.id
 
-resource "aws_nat_gateway" "eks_nat_gateway" {
-  allocation_id = aws_eip.nat_eip.id
-  subnet_id     = aws_subnet.private_subnet[0].id
+  tags = {
+    Name = "tech-challenge-nat"
+  }
+
+  depends_on = [aws_internet_gateway.eks_igw]
 }
 
-resource "aws_route_table" "private_subnet_route_table" {
+### ROUTE TABLE
+resource "aws_route_table" "eks_rt" {
   vpc_id = aws_vpc.eks_vpc.id
 
   route {
-    cidr_block = "10.1.0.0/17"
-    gateway_id = "local"
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.eks_nat_gw.id
   }
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_nat_gateway.eks_nat_gateway.id
+    gateway_id = aws_internet_gateway.eks_igw.id
+  }
+
+  tags = {
+    Name = "tech-challenge-rt"
   }
 }
 
-resource "aws_route" "private_subnet_route" {
-  # count                  = 2
-  route_table_id         = aws_route_table.private_subnet_route_table.id
-  destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.eks_nat_gateway.id
+# resource "aws_route_table" "eks_public_rt" {
+#   vpc_id = aws_vpc.eks_vpc.id
+
+#   route = [
+#     {
+#       cidr_block                 = "0.0.0.0/0"
+#       gateway_id                 = aws_internet_gateway.eks_igw.id
+#       nat_gateway_id             = ""
+#       carrier_gateway_id         = ""
+#       destination_prefix_list_id = ""
+#       egress_only_gateway_id     = ""
+#       instance_id                = ""
+#       ipv6_cidr_block            = ""
+#       local_gateway_id           = ""
+#       network_interface_id       = ""
+#       transit_gateway_id         = ""
+#       vpc_endpoint_id            = ""
+#       vpc_peering_connection_id  = ""
+#     },
+#   ]
+
+#   tags = {
+#     Name = "tech-challenge-public-rt"
+#   }
+# }
+
+resource "aws_route_table_association" "eks_private_us_east_1a" {
+  subnet_id      = aws_subnet.eks_private_us_east_1a.id
+  route_table_id = aws_route_table.eks_rt.id
 }
 
-##EKS
-resource "aws_eks_cluster" "eks" {
-  name     = "tech-challenge-cluster"
-  role_arn = "arn:aws:iam::244071861643:role/eks_cluster_role" # Replace with your EKS service role ARN
+resource "aws_route_table_association" "eks_private_us_east_1b" {
+  subnet_id      = aws_subnet.eks_private_us_east_1b.id
+  route_table_id = aws_route_table.eks_rt.id
+}
+
+resource "aws_route_table_association" "eks_public_us_east_1a" {
+  subnet_id      = aws_subnet.eks_public_us_east_1a.id
+  route_table_id = aws_route_table.eks_rt.id
+}
+
+resource "aws_route_table_association" "eks_public_us_east_1b" {
+  subnet_id      = aws_subnet.eks_public_us_east_1b.id
+  route_table_id = aws_route_table.eks_rt.id
+}
+
+### EKS CLUSTER
+resource "aws_iam_role" "eks_role" {
+  name = "eks-cluster-demo"
+
+  assume_role_policy = <<POLICY
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "eks.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+POLICY
+}
+
+resource "aws_iam_role_policy_attachment" "eks_AmazonEKSClusterPolicy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+  role       = aws_iam_role.eks_role.name
+}
+
+variable "cluster_name" {
+  default     = "tech-challenge-cluster"
+  type        = string
+  description = "AWS EKS CLuster Name"
+  nullable    = false
+}
+
+resource "aws_eks_cluster" "eks_cluster" {
+  name     = var.cluster_name
+  role_arn = aws_iam_role.eks_role.arn
 
   vpc_config {
-    subnet_ids = aws_subnet.private_subnet[*].id
+    subnet_ids = [
+      aws_subnet.eks_private_us_east_1a.id,
+      aws_subnet.eks_private_us_east_1b.id,
+      aws_subnet.eks_public_us_east_1a.id,
+      aws_subnet.eks_public_us_east_1b.id
+    ]
   }
+
+  depends_on = [aws_iam_role_policy_attachment.eks_AmazonEKSClusterPolicy]
 }
 
+### EKS NODE
+resource "aws_iam_role" "eks_node_role" {
+  name = "eks-node-group-role"
 
-##ALB
-resource "aws_security_group" "alb_sg" {
-  name        = "alb-sg"
-  description = "Security group for the ALB"
-  vpc_id      = aws_vpc.eks_vpc.id
+  assume_role_policy = jsonencode({
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+    }]
+    Version = "2012-10-17"
+  })
 }
 
-resource "aws_security_group_rule" "alb_ingress" {
-  type              = "ingress"
-  from_port         = 80
-  to_port           = 80
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.alb_sg.id
+resource "aws_iam_role_policy_attachment" "eks_nodes_AmazonEKSWorkerNodePolicy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+  role       = aws_iam_role.eks_node_role.name
 }
 
-resource "aws_security_group_rule" "alb_egress" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.alb_sg.id
+resource "aws_iam_role_policy_attachment" "eks_nodes_AmazonEKS_CNI_Policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+  role       = aws_iam_role.eks_node_role.name
 }
 
-resource "aws_lb" "eks_alb" {
-  name               = "eks-alb"
-  internal           = false
-  load_balancer_type = "application"
-  subnets            = aws_subnet.private_subnet[*].id
-  security_groups    = [aws_security_group.alb_sg.id]
+resource "aws_iam_role_policy_attachment" "eks_nodes_AmazonEC2ContainerRegistryReadOnly" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+  role       = aws_iam_role.eks_node_role.name
 }
 
-resource "aws_lb_target_group" "eks_target_group" {
-  name     = "eks-target-group"
-  port     = 80
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.eks_vpc.id
-
-  health_check {
-    path = "/"
-  }
-}
-
-resource "aws_lb_listener" "eks_listener" {
-  load_balancer_arn = aws_lb.eks_alb.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type = "fixed-response"
-    fixed_response {
-      content_type = "text/plain"
-      status_code  = "200"
-    }
-  }
-}
-
-
-##ATTACH ALB -> EKS
-resource "aws_eks_node_group" "eks_nodes" {
-  cluster_name    = aws_eks_cluster.eks.name
-  node_group_name = "eks_nodes"
+resource "aws_eks_node_group" "eks_node_group" {
+  cluster_name    = aws_eks_cluster.eks_cluster.name
+  node_group_name = "tech-challenge-node-group"
   node_role_arn   = aws_iam_role.eks_node_role.arn
-  subnet_ids      = aws_subnet.private_subnet[*].id
-  instance_types  = ["t2.micro"]
+
+  subnet_ids = [
+    aws_subnet.eks_private_us_east_1a.id,
+    aws_subnet.eks_private_us_east_1b.id,
+  ]
+
+  capacity_type  = "ON_DEMAND"
+  instance_types = ["t2.micro"]
+
   scaling_config {
     desired_size = 1
     max_size     = 1
     min_size     = 1
   }
 
+  update_config {
+    max_unavailable = 1
+  }
+
+  labels = {
+    role = "general"
+  }
+
   depends_on = [
-    aws_eks_cluster.eks,
-    aws_iam_policy_attachment.eks_node_policy_attachment,
-    aws_iam_policy_attachment.eks_cni_policy_attachment,
+    aws_iam_role_policy_attachment.eks_nodes_AmazonEKSWorkerNodePolicy,
+    aws_iam_role_policy_attachment.eks_nodes_AmazonEKS_CNI_Policy,
+    aws_iam_role_policy_attachment.eks_nodes_AmazonEC2ContainerRegistryReadOnly,
   ]
 }
 
-
-resource "aws_iam_role" "eks_cluster_role" {
-  name = "eks_cluster_role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Action = "sts:AssumeRole",
-        Effect = "Allow",
-        Principal = {
-          Service = "eks.amazonaws.com"
-        }
-      }
-    ]
-  })
+### OIDC
+data "tls_certificate" "eks_cluster_certificate" {
+  url = aws_eks_cluster.eks_cluster.identity[0].oidc[0].issuer
 }
 
-resource "aws_iam_policy_attachment" "eks_cluster_policy_attachment" {
-  name       = "eks_cluster_policy_attachment"
-  roles      = [aws_iam_role.eks_cluster_role.name]
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+resource "aws_iam_openid_connect_provider" "eks_oidc" {
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.eks_cluster_certificate.certificates[0].sha1_fingerprint]
+  url             = aws_eks_cluster.eks_cluster.identity[0].oidc[0].issuer
 }
 
-resource "aws_iam_role" "eks_node_role" {
-  name = "eks_node_role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Action = "sts:AssumeRole",
-        Effect = "Allow",
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_policy_attachment" "eks_node_policy_attachment" {
-  name       = "eks_node_policy_attachment"
-  roles      = [aws_iam_role.eks_node_role.name]
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-}
-
-resource "aws_iam_policy_attachment" "eks_cni_policy_attachment" {
-  name       = "eks_cni_policy_attachment"
-  roles      = [aws_iam_role.eks_node_role.name]
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
-}
-
-resource "aws_security_group_rule" "eks_cluster_alb_ingress" {
-  type                     = "ingress"
-  from_port                = 80
-  to_port                  = 80
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.eks_cluster_sg.id
-  source_security_group_id = aws_security_group.alb_sg.id
-}
-
-terraform {
-  backend "s3" {
-    bucket = "tech-challenge-61"
-    key    = "infra-eks-tech-challenge/eks.tfstate"
-    region = "us-east-1"
-  }
-}
