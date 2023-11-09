@@ -84,8 +84,6 @@ resource "aws_iam_role_policy_attachment" "tech_challenge_AmazonEKSClusterPolicy
   role       = aws_iam_role.tech_challenge_cluster_role.name
 }
 
-# Optionally, enable Security Groups for Pods
-# Reference: https://docs.aws.amazon.com/eks/latest/userguide/security-groups-for-pods.html
 resource "aws_iam_role_policy_attachment" "tech_challenge_AmazonEKSVPCResourceController" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"
   role       = aws_iam_role.tech_challenge_cluster_role.name
