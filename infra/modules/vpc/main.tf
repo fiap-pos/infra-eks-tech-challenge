@@ -14,12 +14,8 @@ resource "aws_internet_gateway" "tech_challenge_gw" {
   }
 }
 
-data "aws_availability_zones" "available" {
-}
-
-
 resource "random_shuffle" "az_list" {
-  input        = data.aws_availability_zones.available.names
+  input        = ["us-east-1a", "us-east-1b", "us-east-1c"]
   result_count = 2
 }
 
