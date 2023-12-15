@@ -24,8 +24,8 @@ jobs:
 
       - name: Init
         run: terraform init
-        working-directory: "./infra"
+        working-directory: "./"
 
       - name: Destroy
         run: terraform destroy -auto-approve
-        working-directory: "./infra"
+        working-directory: "./"
