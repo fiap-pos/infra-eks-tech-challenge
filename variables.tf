@@ -17,3 +17,8 @@ variable "vpc_name" {
   type    = string
   default = "tech-challenge-61-eks"
 }
+
+variable "environment" {
+  type    = string
+  default = "dev"
+}
