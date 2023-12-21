@@ -7,7 +7,7 @@ jobs:
   infra-destroy:
     runs-on: ubuntu-latest
     steps:
-      - name: checkout code
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Configure AWS Credentials
@@ -17,15 +17,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: set up terraform
+      - name: Set up terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.6.1
 
-      - name: destroy
-        run: terraform destroy -auto-approve
-        working-directory: "./eks"
+      - name: Init
+        run: terraform init
+        working-directory: "./"
 
-      - run: echo ${{ steps.plan.outputs.stdout }}
-      - run: echo ${{ steps.plan.outputs.stderr }}
-      - run: echo ${{ steps.plan.outputs.exitcode }}
+      - name: Destroy
+        run: terraform destroy -auto-approve
+        working-directory: "./"
