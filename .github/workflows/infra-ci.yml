@@ -1,4 +1,4 @@
-name: "Infra CI"
+name: "Infra Deploy"
 
 on:
   push:

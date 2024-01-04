@@ -43,16 +43,23 @@ module "eks" {
   vpc_id          = module.vpc.vpc_id
   subnet_ids      = module.vpc.private_subnets
 
+  eks_managed_node_group_defaults = {
+    instance_types = ["${var.cluster_instance_type}"]
+    iam_role_additional_policies = {
+      AmazonSSMReadOnlyAccess = "arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess"
+      SecretsManagerReadWrite = "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
+    }
+  }
+
   eks_managed_node_groups = {
     one = {
       name = "ng-${var.cluster_name}-1"
-      instance_types   =  ["${var.cluster_instance_type}"]      
       min_capacity     = 2
       max_capacity     = 3
       desired_capacity = 1
     }
+    
   }
-  
 }
 
 # Store cluster endpoint in SSM Parameter Store
