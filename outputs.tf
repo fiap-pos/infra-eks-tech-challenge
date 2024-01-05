@@ -19,3 +19,8 @@ output "cluster_name" {
   description = "Kubernetes Cluster Name"
   value       = module.eks.cluster_name
 }
+
+output "pods_secrets_role_arn" {
+  description = "ARN of the pods role to access ssm and secrets manager"
+  value       = aws_iam_role.eks_pods_role.arn
+}
