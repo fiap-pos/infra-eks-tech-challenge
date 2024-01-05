@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  terraform-files-check:
+  deploy-eks-infra:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
