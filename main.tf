@@ -52,8 +52,9 @@ module "eks" {
   cluster_version = "1.28"
   cluster_endpoint_public_access = true
   
-  vpc_id          = module.vpc.vpc_id
-  subnet_ids      = module.vpc.private_subnets
+  vpc_id                   = module.vpc.vpc_id
+  subnet_ids               = module.vpc.private_subnets
+  control_plane_subnet_ids = module.vpc.private_subnets
 
   eks_managed_node_group_defaults = {
     instance_types = ["${var.cluster_instance_type}"]
@@ -74,7 +75,76 @@ module "eks" {
   }
 }
 
-# Create AWS Role
+# Create EKS lb role
+module "lb_role" {
+  source = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+
+  role_name                              = "eks-lb-role-${var.cluster_name}"
+  attach_load_balancer_controller_policy = true
+
+  oidc_providers = {
+    main = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["kube-system:aws-load-balancer-controller"]
+    }
+  }
+  depends_on = [module.eks]
+}
+
+
+# Use the AWS Load Balancer Controller Helm chart to deploy the controller
+resource "helm_release" "aws_load_balancer_controller" { 
+  name       = "aws-load-balancer-controller"
+  repository = "https://aws.github.io/eks-charts"
+  chart      = "aws-load-balancer-controller"
+  namespace  = "kube-system"
+
+  set {
+    name  = "clusterName"
+    value = module.eks.cluster_name
+  }
+
+  set {
+    name  = "serviceAccount.create"
+    value = false
+  }
+
+  set {
+    name  = "serviceAccount.name"
+    value = kubernetes_service_account.eks_lb_service_account.metadata[0].name
+  }
+
+  # set {
+  #   name  = "serviceAccount.annotations.eks.amazonaws.com/role-arn"
+  #   value = module.lb_role.iam_role_arn
+  # }
+
+  set {
+    name = "image.repository"
+    value = "602401143452.dkr.ecr.${var.aws_region}.amazonaws.com/amazon/aws-load-balancer-controller"
+  }
+
+  depends_on = [ kubernetes_service_account.eks_lb_service_account ]
+}
+
+# Create EKS Service Account
+resource "kubernetes_service_account" "eks_lb_service_account" {
+  metadata {
+    name      = "aws-load-balancer-controller"
+    namespace = "kube-system"
+    labels = {
+      "app.kubernetes.io/name"      = "aws-load-balancer-controller"
+      "app.kubernetes.io/component" = "controller"
+    }
+    annotations = {
+      "eks.amazonaws.com/role-arn"               = module.lb_role.iam_role_arn
+      "eks.amazonaws.com/sts-regional-endpoints" = "true"
+    }
+  }
+  depends_on = [ module.lb_role ]
+}
+
+# Create EKS pods Role
 resource "aws_iam_role" "eks_pods_role" {
   name = "eks-pods-role-${var.cluster_name}"
   assume_role_policy = jsonencode({
@@ -92,7 +162,7 @@ resource "aws_iam_role" "eks_pods_role" {
   depends_on = [ module.eks ]
 }
 
-# Create AWS Role Policy
+# Create EKS pods Policy
 resource "aws_iam_role_policy" "eks_pods_role_policy" {
   name = "eks-pods-role-policy-${var.cluster_name}"
   role = aws_iam_role.eks_pods_role.id
