@@ -194,6 +194,17 @@ resource "aws_iam_role_policy" "eks_pods_role_policy" {
         ]
         Effect   = "Allow"
         Resource = "*"
+      },
+      {
+        Action = [
+          "sqs:DeleteMessage",
+          "sqs:ReceiveMessage",
+          "sqs:SendMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:GetQueueUrl"
+        ]
+        Effect   =  "Allow"
+        Resource =  "*"
       }
     ]
   })
