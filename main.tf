@@ -61,6 +61,7 @@ module "eks" {
     iam_role_additional_policies = {
       AmazonSSMReadOnlyAccess = "arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess"
       SecretsManagerReadWrite = "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
+      AmazonSQSFullAccess     = "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
     }
   }
 
@@ -194,6 +195,20 @@ resource "aws_iam_role_policy" "eks_pods_role_policy" {
         ]
         Effect   = "Allow"
         Resource = "*"
+      },
+      {
+        Action = [
+          "sqs:DeleteMessage",
+          "sqs:ReceiveMessage",
+          "sqs:SendMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:GetQueueUrl",
+          "sqs:ListQueues",
+          "sqs:CreateQueue",
+          "sqs:DeleteQueue"
+        ]
+        Effect   =  "Allow"
+        Resource =  "*"
       }
     ]
   })
