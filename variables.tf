@@ -10,7 +10,7 @@ variable "cluster_name" {
 
 variable "cluster_instance_type" {
   type    = string
-  default = "t3.small"
+  default = "t3.medium"
 }
 
 variable "vpc_name" {
